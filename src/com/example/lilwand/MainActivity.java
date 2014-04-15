@@ -59,13 +59,11 @@ public class MainActivity extends Activity {
 	public static final int MESSAGE_DEVICE_NAME = 4;
 	public static final int MESSAGE_TOAST = 5;
 
-	private int mState;
+	private int mRole;
 
-	// Constants that indicate the current app state	
-	public static final int STATE_CONTROLLER_CONNECTING = 0; // assigned as
-	public static final int STATE_CONTROLLER_CONNECTED = 1; // assigned as controller
-	public static final int STATE_CAMERA_UNCONNECTED = 2; // (default state) camera unconnected
-	public static final int STATE_CAMERA_CONNECTED = 3; // assigned as camera
+	// Constants that indicate the current role	
+	public static final int ROLE_CAMERA = 0;
+	public static final int ROLE_CONTROLLER = 1;
 	
 
 	// Key names received from the BluetoothService Handler
@@ -99,8 +97,8 @@ public class MainActivity extends Activity {
 		if (D)
 			Log.e(TAG, "+++ ON CREATE +++");
 
-		// set app state
-		setState(STATE_CAMERA_UNCONNECTED);
+		// set app role (default as camera)
+		mRole = ROLE_CAMERA;
 
 		// create message handler for bluetooth messages
 		mHandler = new LilWandHandler(this);
@@ -116,7 +114,7 @@ public class MainActivity extends Activity {
 		mTitle.setText(R.string.app_name);
 		mTitle = (TextView) findViewById(R.id.title_right_text);
 
-		// set up the preview
+		// set up the camera preview widget
 		preview = (FrameLayout) findViewById(R.id.camera_preview);
 		
 		// Get local Bluetooth adapter
@@ -137,24 +135,15 @@ public class MainActivity extends Activity {
 		if (D)
 			Log.e(TAG, "++ ON START ++");
 
-		switch (mState) {
-		case STATE_CAMERA_UNCONNECTED:
-			// If BT is not on, request that it be enabled.
-			// setupSession() will then be called during onActivityResult
-			if (!mBluetoothAdapter.isEnabled()) {
-				Intent enableIntent = new Intent(
-						BluetoothAdapter.ACTION_REQUEST_ENABLE);
-				startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-				// Otherwise, setup the session
-			} else {
-				if (mBluetoothService == null)
-					setupSession();
-			}
-			break;
-		default:
-			break;
-		}
-
+	
+		// If BT is not on, request that it be enabled.
+		// setupSession() will then be called during onActivityResult
+		if (!mBluetoothAdapter.isEnabled()) {
+			Intent enableIntent = new Intent(
+					BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+			// Otherwise, setup the session
+		} else if (mBluetoothService == null) setupSession();
 	}
 
 	@Override
@@ -163,25 +152,21 @@ public class MainActivity extends Activity {
 		if (D)
 			Log.e(TAG, "+ ON RESUME +");
 
-		switch (mState) {
-		case STATE_CAMERA_UNCONNECTED:
-			// Performing this check in onResume() covers the case in which BT
-			// was not enabled during onStart(), so we were paused to enable it...
-			// onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
-			if (mBluetoothService != null) {
-				// Only if the state is STATE_NONE, do we know that we haven't
-				// started already
-				if (mBluetoothService.getState() == BluetoothService.STATE_NONE) {
-					// Start the Bluetooth services
-					mBluetoothService.start();
-				}
+		// Performing this check in onResume() covers the case in which BT
+		// was not enabled during onStart(), so we were paused to enable it...
+		// onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
+		if (mBluetoothService != null) {
+			// Only if the state is STATE_NONE, do we know that we haven't
+			// started already
+			if (mBluetoothService.getState() == BluetoothService.STATE_NONE) {
+				// Start the Bluetooth services
+				mBluetoothService.start();
 			}
-			break;
-		case STATE_CAMERA_CONNECTED:
+		}
+		
+		if(mRole == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
 			// get camera again			
-			getCameraInstanceAndStartPreview();
-
-			break;
+			getCameraInstanceAndStartPreview();	
 		}
 
 	}
@@ -200,11 +185,9 @@ public class MainActivity extends Activity {
 		if (D)
 			Log.e(TAG, "- ON PAUSE -");
 
-		switch (mState) {
-		case STATE_CAMERA_CONNECTED:
+		if(mRole == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
 			// release camera
-			stopPreviewAndReleaseCamera();
-			break;
+			stopPreviewAndReleaseCamera();		
 		}
 	}
 
@@ -284,7 +267,11 @@ public class MainActivity extends Activity {
 					case BluetoothService.STATE_LISTEN:						
 					case BluetoothService.STATE_NONE:
 						// lost connection with paired device		
-						activity.setState(STATE_CAMERA_UNCONNECTED);
+						if (activity.mRole == ROLE_CAMERA) {
+							activity.stopPreviewAndReleaseCamera();			
+						}else{
+							activity.mRole = ROLE_CAMERA;
+						}
 						activity.mTitle.setText(R.string.title_not_connected);
 						break;
 					}
@@ -304,14 +291,14 @@ public class MainActivity extends Activity {
 							Toast.LENGTH_SHORT).show();
 
 					// if we are a camera, start the camera preview
-					if (activity.mState == STATE_CAMERA_UNCONNECTED) {
-						activity.setState(STATE_CAMERA_CONNECTED);						
+					if (activity.mRole == MainActivity.ROLE_CAMERA) {
+						activity.getCameraInstanceAndStartPreview();					
 
 					}
 					// otherwise if we are a controller, enable tap screen to
 					// get a preview
-					else if (activity.mState == STATE_CONTROLLER_CONNECTING) {
-						activity.setState(STATE_CONTROLLER_CONNECTED);
+					else if (activity.mRole == ROLE_CONTROLLER) {
+						// TODO: fill this out
 					
 					}
 					break;
@@ -368,16 +355,24 @@ public class MainActivity extends Activity {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 		case R.id.scan:
-			if(mState == STATE_CAMERA_CONNECTED || mState == STATE_CONTROLLER_CONNECTED || mState == STATE_CONTROLLER_CONNECTING){
-				// disconnect and restart bluetooth service
-				setState(STATE_CAMERA_UNCONNECTED);
+			int btState = mBluetoothService.getState();
+			if(btState == BluetoothService.STATE_CONNECTED || btState == BluetoothService.STATE_CONNECTING) {
+				// initiate disconnect 
+				
+				// if we have the camera, release it
+				if(mRole == ROLE_CAMERA){
+					stopPreviewAndReleaseCamera();
+				}else{
+					mRole = ROLE_CAMERA;
+				}
+				// restart bluetooth service to get it back into listening mode.  (For cases when connection fails or is lost, this happens internally in BluetoothService).
 				if (mBluetoothService !=null){
 					mBluetoothService.stop();
 					mBluetoothService.start();
 				}
-			} else if (mState == STATE_CAMERA_UNCONNECTED){
-				// Set the app state
-				setState(STATE_CONTROLLER_CONNECTING);
+			} else {
+				// Set the app role
+				mRole = ROLE_CONTROLLER;
 
 				// Launch the DeviceListActivity to see devices and do scan
 				Intent serverIntent = new Intent(this, DeviceListActivity.class);
@@ -394,9 +389,10 @@ public class MainActivity extends Activity {
 
 	@Override
 	public boolean onPrepareOptionsMenu(Menu menu) {
-		if(mState == STATE_CAMERA_CONNECTED || mState == STATE_CONTROLLER_CONNECTED || mState == STATE_CONTROLLER_CONNECTING){
+		int btState = mBluetoothService.getState();
+		if(btState == BluetoothService.STATE_CONNECTED || btState == BluetoothService.STATE_CONNECTING) {
 			menu.findItem(R.id.scan).setTitle(R.string.disconnect);
-		} else if (mState == STATE_CAMERA_UNCONNECTED){
+		} else {
 			menu.findItem(R.id.scan).setTitle(R.string.connect);
 		}
 		return super.onPrepareOptionsMenu(menu);
@@ -425,53 +421,5 @@ public class MainActivity extends Activity {
 			mCamera.release();
 			mCamera = null;
 		}
-	}
-
-	private synchronized void setState(int state) {
-		// since we will be setting the state from different threads (message
-		// handler, main ui...)
-		// we should make sure to synchronize setting the apps state
-		if (D) {
-			String logString = "MainActivity state:";
-			switch (mState) {
-			case STATE_CAMERA_UNCONNECTED:
-				logString = logString + "STATE_CAMERA_UNCONNECTED";
-				break;
-			case STATE_CONTROLLER_CONNECTING:
-				logString = logString + "STATE_CONTROLLER_CONNECTING";
-				break;
-			case STATE_CAMERA_CONNECTED:
-				logString = logString + "STATE_CAMERA_CONNECTED";
-				break;
-			case STATE_CONTROLLER_CONNECTED:
-				logString = logString + "STATE_CONTROLLER_CONNECTED";
-				break;
-			default:
-				break;
-			}
-			logString = logString + "->";
-			switch (state) {
-			case STATE_CAMERA_UNCONNECTED:
-				// occurs when connection has been lost/failed, or disconnected, so restart bluetooth service
-				stopPreviewAndReleaseCamera();				
-				logString = logString + "STATE_CAMERA_CONNECTING";
-				break;
-			case STATE_CONTROLLER_CONNECTING:
-				logString = logString + "STATE_CONTROLLER_CONNECTING";
-				break;
-			case STATE_CAMERA_CONNECTED:
-				logString = logString + "STATE_CAMERA_CONNECTED";
-				getCameraInstanceAndStartPreview();
-				break;
-			case STATE_CONTROLLER_CONNECTED:
-				logString = logString + "STATE_CONTROLLER_CONNECTED";
-				break;
-			default:
-				break;
-			}
-			
-			Log.d(TAG, logString);
-		}
-		mState = state;
 	}
 }
