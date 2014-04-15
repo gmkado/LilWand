@@ -1,0 +1,85 @@
+04-14 07:50:52.627: D/dalvikvm(29048): Late-enabling CheckJNI
+04-14 07:50:52.642: I/dalvikvm(29048): Enabling JNI app bug workarounds for target SDK version 5...
+04-14 07:50:52.739: E/MainActivity(29048): +++ ON CREATE +++
+04-14 07:50:52.739: D/MainActivity(29048): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CAMERA_CONNECTING
+04-14 07:50:52.776: E/MainActivity(29048): ++ ON START ++
+04-14 07:50:52.779: D/MainActivity(29048): setupSession()
+04-14 07:50:52.779: E/MainActivity(29048): + ON RESUME +
+04-14 07:50:52.779: D/BluetoothService(29048): start
+04-14 07:50:52.781: W/BluetoothAdapter(29048): getBluetoothService() called with no BluetoothManagerCallback
+04-14 07:50:52.816: D/BluetoothService(29048): Bluetooth state:STATE_NONE->STATE_LISTEN
+04-14 07:50:52.822: D/BluetoothService(29048): BEGIN mAcceptThreadThread[Thread-5763,5,main]
+04-14 07:51:20.469: W/IInputConnectionWrapper(29048): showStatusIcon on inactive InputConnection
+04-14 07:51:36.530: D/BluetoothService(29048): connected
+04-14 07:51:36.530: D/BluetoothService(29048): cancel Thread[AcceptThread,5,main]
+04-14 07:51:36.531: D/BluetoothService(29048): create ConnectedThread
+04-14 07:51:36.532: I/BluetoothService(29048): BEGIN mConnectedThread
+04-14 07:51:36.533: D/BluetoothService(29048): Bluetooth state:STATE_LISTEN->STATE_CONNECTED
+04-14 07:51:36.533: I/BluetoothService(29048): END mAcceptThread
+04-14 07:51:36.847: D/MainActivity(29048): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CAMERA_CONNECTED
+04-14 07:51:42.245: D/MainActivity(29048): MainActivity state:STATE_CAMERA_CONNECTED->STATE_CAMERA_CONNECTING
+04-14 07:51:54.280: D/MainActivity(29048): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CONTROLLER_CONNECTING
+04-14 07:51:54.320: E/MainActivity(29048): - ON PAUSE -
+04-14 07:51:55.646: I/Choreographer(29048): Skipped 67 frames!  The application may be doing too much work on its main thread.
+04-14 07:51:57.628: D/MainActivity(29048): onActivityResult -1
+04-14 07:51:57.628: D/BluetoothService(29048): connect to: 5C:6B:32:CF:86:8F
+04-14 07:51:57.630: E/BluetoothService(29048): disconnected
+04-14 07:51:57.630: E/BluetoothService(29048): java.io.IOException: bt socket closed, read return: -1
+04-14 07:51:57.630: E/BluetoothService(29048): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:429)
+04-14 07:51:57.630: E/BluetoothService(29048): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:51:57.630: E/BluetoothService(29048): 	at java.io.InputStream.read(InputStream.java:162)
+04-14 07:51:57.630: E/BluetoothService(29048): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:51:57.631: D/BluetoothService(29048): Bluetooth state:STATE_CONNECTED->STATE_CONNECTING
+04-14 07:51:57.631: E/MainActivity(29048): + ON RESUME +
+04-14 07:51:57.631: D/BluetoothService(29048): start
+04-14 07:51:57.634: W/BluetoothAdapter(29048): getBluetoothService() called with no BluetoothManagerCallback
+04-14 07:51:57.640: D/BluetoothService(29048): Bluetooth state:STATE_CONNECTING->STATE_LISTEN
+04-14 07:51:57.641: D/BluetoothService(29048): BEGIN mAcceptThreadThread[Thread-5767,5,main]
+04-14 07:51:57.653: I/BluetoothService(29048): BEGIN mConnectThread
+04-14 07:51:57.667: D/BluetoothService(29048): start
+04-14 07:51:57.667: D/BluetoothService(29048): Bluetooth state:STATE_LISTEN->STATE_LISTEN
+04-14 07:51:57.667: D/BluetoothService(29048): start
+04-14 07:51:57.667: D/BluetoothService(29048): Bluetooth state:STATE_LISTEN->STATE_LISTEN
+04-14 07:51:57.769: I/dalvikvm(29048): threadid=3: reacting to signal 3
+04-14 07:51:57.801: I/dalvikvm(29048): Wrote stack traces to '/data/anr/traces.txt'
+04-14 07:52:03.728: D/MainActivity(29048): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CAMERA_CONNECTING
+04-14 07:52:06.034: D/MainActivity(29048): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CONTROLLER_CONNECTING
+04-14 07:52:06.066: E/MainActivity(29048): - ON PAUSE -
+04-14 07:52:08.024: D/MainActivity(29048): onActivityResult -1
+04-14 07:52:08.024: D/BluetoothService(29048): connect to: 5C:6B:32:CF:86:8F
+04-14 07:52:08.025: D/BluetoothService(29048): Bluetooth state:STATE_LISTEN->STATE_CONNECTING
+04-14 07:52:08.025: E/MainActivity(29048): + ON RESUME +
+04-14 07:52:08.026: I/BluetoothService(29048): BEGIN mConnectThread
+04-14 07:52:08.028: W/BluetoothAdapter(29048): getBluetoothService() called with no BluetoothManagerCallback
+04-14 07:52:08.031: D/BluetoothSocket(29048): connect(), SocketState: INIT, mPfd: {ParcelFileDescriptor: FileDescriptor[56]}
+04-14 07:52:09.523: D/BluetoothService(29048): connected
+04-14 07:52:09.523: D/BluetoothService(29048): cancel Thread[AcceptThread,5,main]
+04-14 07:52:09.524: D/BluetoothService(29048): create ConnectedThread
+04-14 07:52:09.525: E/BluetoothService(29048): accept() failed
+04-14 07:52:09.525: E/BluetoothService(29048): java.io.IOException: read failed, socket might closed or timeout, read ret: -1
+04-14 07:52:09.525: E/BluetoothService(29048): 	at android.bluetooth.BluetoothSocket.readAll(BluetoothSocket.java:510)
+04-14 07:52:09.525: E/BluetoothService(29048): 	at android.bluetooth.BluetoothSocket.waitSocketSignal(BluetoothSocket.java:487)
+04-14 07:52:09.525: E/BluetoothService(29048): 	at android.bluetooth.BluetoothSocket.accept(BluetoothSocket.java:395)
+04-14 07:52:09.525: E/BluetoothService(29048): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:131)
+04-14 07:52:09.525: E/BluetoothService(29048): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:117)
+04-14 07:52:09.525: E/BluetoothService(29048): 	at com.example.lilwand.BluetoothService$AcceptThread.run(BluetoothService.java:283)
+04-14 07:52:09.526: I/BluetoothService(29048): END mAcceptThread
+04-14 07:52:09.528: D/BluetoothService(29048): Bluetooth state:STATE_CONNECTING->STATE_CONNECTED
+04-14 07:52:09.533: D/MainActivity(29048): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CONTROLLER_CONNECTED
+04-14 07:52:09.540: I/BluetoothService(29048): BEGIN mConnectedThread
+04-14 07:52:20.605: E/BluetoothService(29048): disconnected
+04-14 07:52:20.605: E/BluetoothService(29048): java.io.IOException: bt socket closed, read return: -1
+04-14 07:52:20.605: E/BluetoothService(29048): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:429)
+04-14 07:52:20.605: E/BluetoothService(29048): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:52:20.605: E/BluetoothService(29048): 	at java.io.InputStream.read(InputStream.java:162)
+04-14 07:52:20.605: E/BluetoothService(29048): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:52:20.605: D/BluetoothService(29048): start
+04-14 07:52:20.611: W/BluetoothAdapter(29048): getBluetoothService() called with no BluetoothManagerCallback
+04-14 07:52:20.645: D/BluetoothService(29048): Bluetooth state:STATE_CONNECTED->STATE_LISTEN
+04-14 07:52:20.656: D/BluetoothService(29048): BEGIN mAcceptThreadThread[Thread-5770,5,main]
+04-14 07:52:35.400: D/BluetoothService(29048): connected
+04-14 07:52:35.401: D/BluetoothService(29048): cancel Thread[AcceptThread,5,main]
+04-14 07:52:35.401: D/BluetoothService(29048): create ConnectedThread
+04-14 07:52:35.403: I/BluetoothService(29048): BEGIN mConnectedThread
+04-14 07:52:35.403: D/BluetoothService(29048): Bluetooth state:STATE_LISTEN->STATE_CONNECTED
+04-14 07:52:35.404: I/BluetoothService(29048): END mAcceptThread

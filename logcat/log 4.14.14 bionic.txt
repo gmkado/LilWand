@@ -1,0 +1,100 @@
+04-14 07:54:27.825: D/MainActivity(1830): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CONTROLLER_CONNECTING
+04-14 07:54:28.067: E/MainActivity(1830): - ON PAUSE -
+04-14 07:54:29.669: D/MainActivity(1830): onActivityResult -1
+04-14 07:54:29.669: D/BluetoothService(1830): connect to: F8:F1:B6:49:92:5E
+04-14 07:54:29.669: I/BluetoothSocket.cpp(1830): Setting Master socket option
+04-14 07:54:29.676: D/BluetoothService(1830): Bluetooth state:STATE_LISTEN->STATE_CONNECTING
+04-14 07:54:29.676: E/MainActivity(1830): + ON RESUME +
+04-14 07:54:29.676: I/BluetoothService(1830): BEGIN mConnectThread
+04-14 07:54:31.036: D/BluetoothService(1830): connected
+04-14 07:54:31.036: D/BluetoothService(1830): cancel Thread[AcceptThread,5,main]
+04-14 07:54:31.036: E/BluetoothService(1830): accept() failed
+04-14 07:54:31.036: E/BluetoothService(1830): java.io.IOException: Operation Canceled
+04-14 07:54:31.036: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.acceptNative(Native Method)
+04-14 07:54:31.036: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.accept(BluetoothSocket.java:364)
+04-14 07:54:31.036: E/BluetoothService(1830): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:113)
+04-14 07:54:31.036: E/BluetoothService(1830): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:99)
+04-14 07:54:31.036: E/BluetoothService(1830): 	at com.example.lilwand.BluetoothService$AcceptThread.run(BluetoothService.java:283)
+04-14 07:54:31.036: I/BluetoothService(1830): END mAcceptThread
+04-14 07:54:31.036: D/BluetoothService(1830): create ConnectedThread
+04-14 07:54:31.044: I/BluetoothService(1830): BEGIN mConnectedThread
+04-14 07:54:31.067: D/BluetoothService(1830): Bluetooth state:STATE_CONNECTING->STATE_CONNECTED
+04-14 07:54:31.075: D/MainActivity(1830): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CONTROLLER_CONNECTED
+04-14 07:54:52.169: E/BluetoothSocket(1830): java.io.IOException: Software caused connection abort
+04-14 07:54:52.169: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothSocket.readNative(Native Method)
+04-14 07:54:52.169: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:386)
+04-14 07:54:52.169: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:54:52.169: E/BluetoothSocket(1830): 	at java.io.InputStream.read(InputStream.java:163)
+04-14 07:54:52.169: E/BluetoothSocket(1830): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:54:52.169: E/BluetoothService(1830): disconnected
+04-14 07:54:52.169: E/BluetoothService(1830): java.io.IOException: Software caused connection abort
+04-14 07:54:52.169: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.readNative(Native Method)
+04-14 07:54:52.169: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:386)
+04-14 07:54:52.169: E/BluetoothService(1830): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:54:52.169: E/BluetoothService(1830): 	at java.io.InputStream.read(InputStream.java:163)
+04-14 07:54:52.169: E/BluetoothService(1830): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:54:52.169: D/BluetoothService(1830): start
+04-14 07:54:52.176: I/BluetoothSocket.cpp(1830): Setting Master socket option
+04-14 07:54:52.192: D/BluetoothService(1830): Bluetooth state:STATE_CONNECTED->STATE_LISTEN
+04-14 07:54:52.192: D/BluetoothService(1830): BEGIN mAcceptThreadThread[Thread-189,5,main]
+04-14 07:55:04.020: D/BluetoothService(1830): connected
+04-14 07:55:04.020: D/BluetoothService(1830): cancel Thread[AcceptThread,5,main]
+04-14 07:55:04.020: D/BluetoothService(1830): create ConnectedThread
+04-14 07:55:04.028: I/BluetoothService(1830): BEGIN mConnectedThread
+04-14 07:55:04.036: D/BluetoothService(1830): Bluetooth state:STATE_LISTEN->STATE_CONNECTED
+04-14 07:55:04.036: I/BluetoothService(1830): END mAcceptThread
+04-14 07:55:10.809: D/MainActivity(1830): MainActivity state:STATE_CONTROLLER_CONNECTED->STATE_CAMERA_CONNECTING
+04-14 07:55:13.208: D/MainActivity(1830): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CONTROLLER_CONNECTING
+04-14 07:55:13.255: E/MainActivity(1830): - ON PAUSE -
+04-14 07:55:15.098: D/MainActivity(1830): onActivityResult -1
+04-14 07:55:15.098: D/BluetoothService(1830): connect to: F8:F1:B6:49:92:5E
+04-14 07:55:15.098: E/BluetoothSocket(1830): java.io.IOException: Operation Canceled
+04-14 07:55:15.098: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothSocket.readNative(Native Method)
+04-14 07:55:15.098: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:386)
+04-14 07:55:15.098: E/BluetoothSocket(1830): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:55:15.098: E/BluetoothSocket(1830): 	at java.io.InputStream.read(InputStream.java:163)
+04-14 07:55:15.098: E/BluetoothSocket(1830): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:55:15.098: E/BluetoothService(1830): disconnected
+04-14 07:55:15.098: E/BluetoothService(1830): java.io.IOException: Operation Canceled
+04-14 07:55:15.098: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.readNative(Native Method)
+04-14 07:55:15.098: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.read(BluetoothSocket.java:386)
+04-14 07:55:15.098: E/BluetoothService(1830): 	at android.bluetooth.BluetoothInputStream.read(BluetoothInputStream.java:96)
+04-14 07:55:15.098: E/BluetoothService(1830): 	at java.io.InputStream.read(InputStream.java:163)
+04-14 07:55:15.098: E/BluetoothService(1830): 	at com.example.lilwand.BluetoothService$ConnectedThread.run(BluetoothService.java:427)
+04-14 07:55:15.106: I/BluetoothSocket.cpp(1830): Setting Master socket option
+04-14 07:55:15.106: I/BluetoothService(1830): BEGIN mConnectThread
+04-14 07:55:15.106: D/BluetoothService(1830): Bluetooth state:STATE_CONNECTED->STATE_CONNECTING
+04-14 07:55:15.106: E/MainActivity(1830): + ON RESUME +
+04-14 07:55:15.106: D/BluetoothService(1830): start
+04-14 07:55:15.106: I/BluetoothSocket.cpp(1830): Setting Master socket option
+04-14 07:55:15.114: D/BluetoothService(1830): Bluetooth state:STATE_CONNECTING->STATE_LISTEN
+04-14 07:55:15.114: D/BluetoothService(1830): start
+04-14 07:55:15.114: D/BluetoothService(1830): Bluetooth state:STATE_LISTEN->STATE_LISTEN
+04-14 07:55:15.114: D/BluetoothService(1830): start
+04-14 07:55:15.114: D/BluetoothService(1830): Bluetooth state:STATE_LISTEN->STATE_LISTEN
+04-14 07:55:15.122: D/BluetoothService(1830): BEGIN mAcceptThreadThread[Thread-192,5,main]
+04-14 07:55:19.942: D/MainActivity(1830): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CAMERA_CONNECTING
+04-14 07:55:27.497: D/MainActivity(1830): MainActivity state:STATE_CAMERA_UNCONNECTED->STATE_CONTROLLER_CONNECTING
+04-14 07:55:27.669: E/MainActivity(1830): - ON PAUSE -
+04-14 07:55:29.028: D/MainActivity(1830): onActivityResult -1
+04-14 07:55:29.028: D/BluetoothService(1830): connect to: F8:F1:B6:49:92:5E
+04-14 07:55:29.028: I/BluetoothSocket.cpp(1830): Setting Master socket option
+04-14 07:55:29.028: D/BluetoothService(1830): Bluetooth state:STATE_LISTEN->STATE_CONNECTING
+04-14 07:55:29.028: E/MainActivity(1830): + ON RESUME +
+04-14 07:55:29.028: I/BluetoothService(1830): BEGIN mConnectThread
+04-14 07:55:29.903: D/BluetoothService(1830): connected
+04-14 07:55:29.903: D/BluetoothService(1830): cancel Thread[AcceptThread,5,main]
+04-14 07:55:29.911: E/BluetoothService(1830): accept() failed
+04-14 07:55:29.911: E/BluetoothService(1830): java.io.IOException: Operation Canceled
+04-14 07:55:29.911: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.acceptNative(Native Method)
+04-14 07:55:29.911: E/BluetoothService(1830): 	at android.bluetooth.BluetoothSocket.accept(BluetoothSocket.java:364)
+04-14 07:55:29.911: E/BluetoothService(1830): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:113)
+04-14 07:55:29.911: E/BluetoothService(1830): 	at android.bluetooth.BluetoothServerSocket.accept(BluetoothServerSocket.java:99)
+04-14 07:55:29.911: E/BluetoothService(1830): 	at com.example.lilwand.BluetoothService$AcceptThread.run(BluetoothService.java:283)
+04-14 07:55:29.911: I/BluetoothService(1830): END mAcceptThread
+04-14 07:55:29.911: D/BluetoothService(1830): create ConnectedThread
+04-14 07:55:29.911: I/BluetoothService(1830): BEGIN mConnectedThread
+04-14 07:55:29.911: D/BluetoothService(1830): Bluetooth state:STATE_CONNECTING->STATE_CONNECTED
+04-14 07:55:29.919: D/MainActivity(1830): MainActivity state:STATE_CONTROLLER_CONNECTING->STATE_CONTROLLER_CONNECTED
+04-14 07:57:08.848: E/MainActivity(1830): - ON PAUSE -
+04-14 07:57:08.880: W/IInputConnectionWrapper(1830): clearMetaKeyStates on inactive InputConnection
