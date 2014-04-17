@@ -424,12 +424,14 @@ public class BluetoothService {
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
-                    // Read from the InputStream
-                    bytes = mmInStream.read(buffer);
-
-                    // Send the obtained bytes to the UI Activity
-                    mHandler.obtainMessage(MainActivity.MESSAGE_READ, bytes, -1, buffer)
-                            .sendToTarget();
+                    // Read from the InputStream and store message in buffer.  bytes contains the number of bytes read.      
+                    bytes = mmInStream.read(buffer);                    
+                    if(bytes>0){
+                    	// Send the obtained bytes to the UI Activity
+                        mHandler.obtainMessage(MainActivity.MESSAGE_READ, bytes, -1, buffer)
+                                .sendToTarget();
+                    }
+                    
                 } catch (IOException e) {
                     Log.e(TAG, "disconnected", e);
                     connectionLost();
