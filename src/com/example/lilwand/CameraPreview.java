@@ -74,7 +74,8 @@ public class CameraPreview extends SurfaceView implements
 				// send new image sizes
 				mContext.setImgWidth(size.width);
 				mContext.setImgHeight(size.height);
-				mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAM, new byte[] {(byte) size.width, (byte) size.height});		        
+				//TODO: uncomment this
+				//mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAM, new byte[] {(byte) size.width, (byte) size.height});		        
 				cameraConfigured = true;
 			}
 		}
