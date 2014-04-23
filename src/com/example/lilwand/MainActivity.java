@@ -1,29 +1,25 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a
+ * copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
+ * under the License.
  */
 
 package com.example.lilwand;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -33,13 +29,10 @@ import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -52,16 +45,13 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.view.Choreographer;
-import android.view.Choreographer.FrameCallback;
+import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.SurfaceView;
-import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.lilwand.R;
@@ -85,8 +75,9 @@ public class MainActivity extends Activity implements PreviewCallback {
 	private BluetoothService mBluetoothService = null;
 
 	// Constants that indicate bluetooth header types
-	public static final byte HEADER_IMAGE = 0;
-	public static final byte HEADER_CAMERA_PARAM = 1;
+	public static final byte HEADER_CAMERA_IMAGE = 0;
+	public static final byte HEADER_CAMERA_PARAM = 2;
+	public static final byte HEADER_CONTROLLER_CMD = 1;
 
 	// Key names received from the BluetoothService Handler
 	public static final String DEVICE_NAME = "device_name";
@@ -103,6 +94,9 @@ public class MainActivity extends Activity implements PreviewCallback {
 	public static final int MESSAGE_DEVICE_NAME = 4;
 	public static final int MESSAGE_TOAST = 5;
 
+	// packet constants
+	public static final byte EOT = 0x04; // END OF TRANSMISSION BYTE
+
 	// Layout Views
 	private ActionBar ab;
 	private FrameLayout mPreviewFrame;
@@ -115,20 +109,21 @@ public class MainActivity extends Activity implements PreviewCallback {
 	// Image decoding variables
 	private LinkedBlockingQueue<Bitmap> mQueue;
 	Bitmap mBitmap;
-	Choreographer mChor;
 
 	// Camera parameters
-	private int imgWidth; // set in cameraPreview for cameras, parseMessage for
-							// controller
-	private int imgHeight; // set in cameraPreview for cameras, parseMessage for
-							// controller
 	private int imgFormat = ImageFormat.NV21;
+	private MenuItem connectMenuItem;
+	private int controllerImgWidth;
+	private int controllerImgHeight;
+	private int cameraImgHeight;
+	private int cameraImgWidth;
+	private boolean cameraConfigured = false;
+
+	private boolean sendImgFlag = false;
 	private Timer mTimer;
 	private TimerTask mTimerTask;
-
-	// To debug transmitted bits
-	private boolean debugBT = false;
-	boolean first = true;
+	private static final long CHECK_QUEUE_INTERVAL = 16;
+	private static final long SEND_IMAGE_INTERVAL = 32;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -149,41 +144,18 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 		// set up the camera preview widget
 		mPreviewFrame = (FrameLayout) findViewById(R.id.camera_preview);
-
 		// Get local Bluetooth adapter
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
 		// If the adapter is null, then Bluetooth is not supported
 		if (mBluetoothAdapter == null) {
-			Toast.makeText(this, "Bluetooth is not available",
-					Toast.LENGTH_LONG).show();
+			Toast.makeText(this, "Bluetooth is not available", Toast.LENGTH_LONG).show();
 			finish();
 			return;
 		}
 
 		// initialize variables for bitmap decoding
 		mQueue = new LinkedBlockingQueue<Bitmap>();
-
-		mTimer = new Timer();
-		mTimerTask = new TimerTask() {
-
-			@Override
-			public void run() {
-				if (!mQueue.isEmpty()) {
-					Bitmap bm = mQueue.remove();
-					Log.d(TAG, "Pulling bitmap from queue");
-
-					// lock canvas
-					Canvas canvas = mPreview.getHolder().lockCanvas();
-
-					// draw to canvas
-					canvas.drawBitmap(bm, 0, 0, new Paint());
-
-					// unlock canvas and post
-					mPreview.getHolder().unlockCanvasAndPost(canvas);
-				}
-			}
-		};
 
 	}
 
@@ -196,8 +168,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 		// If BT is not on, request that it be enabled.
 		// setupSession() will then be called during onActivityResult
 		if (!mBluetoothAdapter.isEnabled()) {
-			Intent enableIntent = new Intent(
-					BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
 			startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
 			// Otherwise, setup the session
 		} else if (mBluetoothService == null)
@@ -223,8 +194,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 			}
 		}
 
-		if (mRole.get() == ROLE_CAMERA
-				&& mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
+		if (mRole.get() == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
 			// get camera again
 			getCameraInstanceAndStartPreview();
 		}
@@ -245,8 +215,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 		if (D)
 			Log.e(TAG, "- ON PAUSE -");
 
-		if (mRole.get() == ROLE_CAMERA
-				&& mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
+		if (mRole.get() == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
 			// release camera
 			stopPreviewAndReleaseCamera();
 		}
@@ -273,69 +242,63 @@ public class MainActivity extends Activity implements PreviewCallback {
 		if (D)
 			Log.d(TAG, "ensure discoverable");
 		if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-			Intent discoverableIntent = new Intent(
-					BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-			discoverableIntent.putExtra(
-					BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+			Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+			discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
 			startActivity(discoverableIntent);
 		}
+	}
+
+	public void sendMessageWithHeader(byte headerType, byte[] data) {
+		// add length to header
+		byte[] header = concatByteArray(new byte[] { headerType }, intToByteArray(data.length));
+		byte[] footer = { EOT }; // arbitrary stop bits
+
+		byte[] message = concatByteArray(header, data);
+		message = concatByteArray(message, footer);
+		Log.d(TAG, "sent " + data.length + " bytes");
+		// send message
+		sendMessage(message);
+
 	}
 
 	/**
 	 * Sends a message.
 	 * 
 	 * @param message
-	 *            A string of text to send.
+	 *            A byte array to send
 	 */
 	private void sendMessage(byte[] message) {
 		// Check that we're actually connected before trying anything
 		if (mBluetoothService.getState() != BluetoothService.STATE_CONNECTED) {
-			Toast.makeText(this, R.string.not_connected, Toast.LENGTH_SHORT)
-					.show();
+			Toast.makeText(this, R.string.not_connected, Toast.LENGTH_SHORT).show();
 			return;
 		}
 
-		// Check that there's actually something to send
+		// Check that there's actually something to send and that we've received a response already
 		if (message.length > 0) {
 			// Get the message bytes and tell the BluetoothService to write
 			mBluetoothService.write(message);
 		}
 	}
 
-	public void sendMessageWithHeader(byte header, byte[] data) {
-		// create a new message array
-		byte[] newdata = new byte[data.length + 3];
-		// add the message type
-		newdata[0] = header;
-		// add the length of the message
-		short msgLength = (short) data.length;
-		newdata[1] = (byte) (msgLength & 0xFF);
-		newdata[2] = (byte) ((msgLength >>> 8) & 0xFF);
-		
-		// concatenate array
-		System.arraycopy(data, 0, newdata, 3, data.length);
-
-		// send message
-		sendMessage(newdata);
-
-	}
-
 	private void parseMessage(int messageType, int messageLength, byte[] message) {
 		// unpack the message
+		Log.d(TAG, "parseMessage");
 		if (mRole.get() == ROLE_CAMERA) {
+		}
 
-		} else if (mRole.get() == ROLE_CONTROLLER) {
-			if (messageType == HEADER_IMAGE) {
+		else if (mRole.get() == ROLE_CONTROLLER) {
+			if (messageType == HEADER_CAMERA_PARAM) {
+				ByteBuffer b = ByteBuffer.wrap(message);
+				int width = b.getInt();
+				int height = b.getInt();
+				setControllerImageSize(width, height);
+			}
+			if (messageType == HEADER_CAMERA_IMAGE) {
 				// if(D) Log.d(TAG,"parseMessage - image received");
 				// execute worker task to decode image
 
-				if (!debugBT || debugBT && first) {
-					writeToFile(message, "received image");					
-					new DecodeBitmapTask().execute(message);
-					first = false;
-				}
-
-				
+				new DecodeBitmapTask().execute(message);
 			}
 		}
 
@@ -343,8 +306,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 	private void writeToFile(byte[] img, String fn) {
 		// write img byte array to file named fn
-		File file = new File(getExternalFilesDir(Environment.DIRECTORY_DCIM),
-				fn);
+		File file = new File(getExternalFilesDir(Environment.DIRECTORY_DCIM), fn);
 
 		if (!file.exists()) {
 			try {
@@ -386,11 +348,9 @@ public class MainActivity extends Activity implements PreviewCallback {
 			// When DeviceListActivity returns with a device to connect
 			if (resultCode == Activity.RESULT_OK) {
 				// Get the device MAC address
-				String address = data.getExtras().getString(
-						DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+				String address = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
 				// Get the BLuetoothDevice object
-				BluetoothDevice device = mBluetoothAdapter
-						.getRemoteDevice(address);
+				BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
 				// Attempt to connect to the device
 				mBluetoothService.connect(device);
 			}
@@ -403,8 +363,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 			} else {
 				// User did not enable Bluetooth or an error occured
 				Log.d(TAG, "BT not enabled");
-				Toast.makeText(this, R.string.bt_not_enabled_leaving,
-						Toast.LENGTH_SHORT).show();
+				Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
 				finish();
 			}
 		}
@@ -415,6 +374,8 @@ public class MainActivity extends Activity implements PreviewCallback {
 	public boolean onCreateOptionsMenu(Menu menu) {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.option_menu, menu);
+
+		connectMenuItem = menu.findItem(R.id.scan);
 		return true;
 	}
 
@@ -423,8 +384,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 		switch (item.getItemId()) {
 		case R.id.scan:
 			int btState = mBluetoothService.getState();
-			if (btState == BluetoothService.STATE_CONNECTED
-					|| btState == BluetoothService.STATE_CONNECTING) {
+			if (btState == BluetoothService.STATE_CONNECTED || btState == BluetoothService.STATE_CONNECTING) {
 				// initiate disconnect
 
 				// if we have the camera, release it
@@ -438,8 +398,8 @@ public class MainActivity extends Activity implements PreviewCallback {
 				// internally in BluetoothService).
 				if (mBluetoothService != null) {
 					mBluetoothService.stop();
-					mBluetoothService.start();
 				}
+
 			} else {
 				// Set the app role
 				mRole.set(ROLE_CONTROLLER);
@@ -455,18 +415,6 @@ public class MainActivity extends Activity implements PreviewCallback {
 			return true;
 		}
 		return false;
-	}
-
-	@Override
-	public boolean onPrepareOptionsMenu(Menu menu) {
-		int btState = mBluetoothService.getState();
-		if (btState == BluetoothService.STATE_CONNECTED
-				|| btState == BluetoothService.STATE_CONNECTING) {
-			menu.findItem(R.id.scan).setTitle(R.string.disconnect);
-		} else {
-			menu.findItem(R.id.scan).setTitle(R.string.connect);
-		}
-		return super.onPrepareOptionsMenu(menu);
 	}
 
 	/**************************************** CAMERA METHODS ****************************************/
@@ -501,46 +449,60 @@ public class MainActivity extends Activity implements PreviewCallback {
 		}
 	}
 
-	public void onPreviewFrame(byte[] data, Camera camera) {
-		
-			Log.d(TAG, "onPreviewFrame - sending preview frame");
-
-			if (((CameraPreview) mPreview).isConfigured()) {
-				ByteArrayOutputStream outstr = new ByteArrayOutputStream();
-				Rect rect = new Rect(0, 0, imgWidth, imgHeight);
-				YuvImage yuvimage = new YuvImage(data, imgFormat, imgWidth,
-						imgHeight, null);
-				yuvimage.compressToJpeg(rect, 80, outstr); // outstr contains
-															// image
-															// in jpeg
-				Log.d(TAG, "sending byte array of :" + data.length + "bytes");
-
-				byte[] img = outstr.toByteArray();
-				if (!debugBT || debugBT && first) {
-					writeToFile(img, "transmitted image");
-					sendMessageWithHeader(HEADER_IMAGE, img);
-					first = false;
-				}
-				
-			} else {
-				Log.w(TAG, "onPreviewFrame - mPreview not configured");
-			}		
+	public synchronized void raiseSendImgFlag() {
+		sendImgFlag = true;
 	}
 
-	public int getFrameWidth() {
+	public void onPreviewFrame(byte[] data, Camera camera) {
+
+		// Log.d(TAG, "onPreviewFrame - sending preview frame");
+
+		// if the camera has been configured and response received, send another image
+		if (cameraConfigured && sendImgFlag) {
+			ByteArrayOutputStream outstr = new ByteArrayOutputStream();
+			Rect rect = new Rect(0, 0, cameraImgWidth, cameraImgHeight);
+			YuvImage yuvimage = new YuvImage(data, imgFormat, cameraImgWidth, cameraImgHeight, null);
+			yuvimage.compressToJpeg(rect, 30, outstr);
+
+			byte[] img = outstr.toByteArray();
+			Log.d(TAG, "onPreviewFrame: compressed " + data.length + " to " + img.length);
+			sendMessageWithHeader(HEADER_CAMERA_IMAGE, img);
+
+			sendImgFlag = false;
+
+		}
+	}
+
+	//
+	public int getPreviewWidth() {
 		return mPreviewFrame.getWidth();
 	}
 
-	public int getFrameHeight() {
+	public int getPreviewHeight() {
 		return mPreviewFrame.getHeight();
 	}
 
-	public void setImgWidth(int imgWidth) {
-		this.imgWidth = imgWidth;
+	public void setControllerImageSize(int width, int height) {
+		// get the biggest size for the image that will fit the preview
+		float widthScale = (float) getPreviewWidth() / width;
+		float heightScale = (float) getPreviewHeight() / height;
+
+		float scale = 0;
+		// select the smaller of the two to be the scaling factor
+		if (widthScale < heightScale) {
+			scale = widthScale;
+		} else {
+			scale = heightScale;
+		}
+
+		controllerImgWidth = (int) (scale * width);
+		controllerImgHeight = (int) (scale * height);
 	}
 
-	public void setImgHeight(int imgHeight) {
-		this.imgHeight = imgHeight;
+	public void setCameraImageSize(int width, int height) {
+		cameraImgWidth = width;
+		cameraImgHeight = height;
+		cameraConfigured = true;
 	}
 
 	/************************************** MESSAGE HANDLER ********************/
@@ -573,16 +535,23 @@ public class MainActivity extends Activity implements PreviewCallback {
 						// lost connection with paired device
 						if (activity.mRole.get() == ROLE_CAMERA) {
 							activity.stopPreviewAndReleaseCamera();
-						} else if (activity.mRole.get() == ROLE_CONTROLLER) {
-							activity.mPreviewFrame
-									.removeView(activity.mPreview);
+						}
 
-							// stop the timer from trying to decode images
-							activity.mTimerTask.cancel();
-							activity.mTimer.cancel();
+						else if (activity.mRole.get() == ROLE_CONTROLLER) {
 
 							activity.mRole.set(ROLE_CAMERA);
 						}
+						activity.mPreviewFrame.removeView(activity.mPreview);
+
+						if (activity.mTimer != null) {
+							// stop the timer
+							activity.mTimerTask.cancel();
+							activity.mTimer.cancel();
+						}
+
+						// change menu icon to connect
+						if (activity.connectMenuItem != null)
+							activity.connectMenuItem.setIcon(android.R.drawable.ic_menu_search);
 						activity.ab.setTitle(R.string.title_not_connected);
 						activity.ab.setSubtitle("");
 						break;
@@ -593,39 +562,38 @@ public class MainActivity extends Activity implements PreviewCallback {
 					break;
 				case MESSAGE_READ:
 					// Log.d(TAG, "handleMessage - READ");
-					activity.parseMessage((int)msg.arg1, (int)msg.arg2, (byte[])msg.obj);
+					activity.parseMessage((int) msg.arg1, (int) msg.arg2, (byte[]) msg.obj);
 					break;
 				case MESSAGE_DEVICE_NAME:
 					// save the connected device's name
-					activity.mConnectedDeviceName = msg.getData().getString(
-							DEVICE_NAME);
-					Toast.makeText(activity.getApplicationContext(),
-							"Connected to " + activity.mConnectedDeviceName,
-							Toast.LENGTH_SHORT).show();
+					activity.mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
+					Toast.makeText(activity.getApplicationContext(), "Connected to " + activity.mConnectedDeviceName, Toast.LENGTH_SHORT).show();
 
+					// change menu icon to disconnect
+					activity.connectMenuItem.setIcon(android.R.drawable.ic_menu_close_clear_cancel);
+					activity.mTimer = new Timer();
 					// if we are a camera, start the camera preview
 					if (activity.mRole.get() == MainActivity.ROLE_CAMERA) {
 						activity.getCameraInstanceAndStartPreview();
+						activity.mTimerTask = activity.new SendImageTimerTask();
+						activity.mTimer.scheduleAtFixedRate(activity.mTimerTask, 0, SEND_IMAGE_INTERVAL);
 
 					}
-					// otherwise if we are a controller, enable tap screen to
-					// get a preview
+					// otherwise if we are a controller schedule to check queue for messages
 					else if (activity.mRole.get() == ROLE_CONTROLLER) {
 						// Reconfigure framelayout to be a controllerpreview
-						activity.mPreviewFrame.removeAllViews();
-						activity.mPreview = new ControllerPreview(
-								activity.getApplicationContext());
-						activity.mPreviewFrame.addView(activity.mPreview);
+						FrameLayout fl = activity.mPreviewFrame;
+						fl.removeAllViews();
+						activity.mPreview = new ControllerPreview(activity.getApplicationContext());
+						fl.addView(activity.mPreview);
 
-						activity.mTimer.scheduleAtFixedRate(
-								activity.mTimerTask, 0, 16);
+						activity.mTimerTask = activity.new CheckQueueTimerTask();
+						activity.mTimer.scheduleAtFixedRate(activity.mTimerTask, 0, CHECK_QUEUE_INTERVAL);
 
 					}
 					break;
 				case MESSAGE_TOAST:
-					Toast.makeText(activity.getApplicationContext(),
-							msg.getData().getString(TOAST), Toast.LENGTH_SHORT)
-							.show();
+					Toast.makeText(activity.getApplicationContext(), msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
 					break;
 				}
 			}
@@ -636,47 +604,31 @@ public class MainActivity extends Activity implements PreviewCallback {
 	// TODO: maybe this should be another thread with a Handler to post to the
 	// queue? or lock orientation so activity doesn't get destroyed
 	private class DecodeBitmapTask extends AsyncTask<byte[], Void, Bitmap> {
-		int fwidth;
-		int fheight;
+		int width;
+		int height;
 
 		@Override
 		protected void onPreExecute() {
 			// while we're in the ui thread, get the frame width and height
 			super.onPreExecute();
-			fwidth = getFrameWidth();
-			fheight = getFrameHeight();
+
+			// get the image dimensions from the UI thread
+			width = controllerImgWidth;
+			height = controllerImgHeight;
 		}
 
 		protected Bitmap doInBackground(byte[]... imgList) {
 			for (byte[] img : imgList) {
 				try {
-					Log.d(TAG, "decoding byte array of :" + img.length
-							+ "bytes");
+					Log.d(TAG, "decoding byte array of :" + img.length + "bytes");
 					// Set bitmap factory options
 					BitmapFactory.Options options = new BitmapFactory.Options();
 					options.inPreferQualityOverSpeed = false;
 					options.inDither = false;
-					
-					if (mBitmap != null) {
-						options.inSampleSize = 1;
-						options.inBitmap = mBitmap;
-
-					} else {
-						// Calculate inSampleSize
-						options.inSampleSize = calculateInSampleSize(options,
-								fwidth, fheight);
-
-						// First decode with inJustDecodeBounds=true to check
-						// dimensions
-						options.inJustDecodeBounds = true;
-						BitmapFactory.decodeByteArray(img, 0, img.length,
-								options);
-					}
+					options.inJustDecodeBounds = false;
 
 					// Decode bitmap
-					options.inJustDecodeBounds = false;
-					mBitmap = BitmapFactory.decodeByteArray(img, 0, img.length,
-							options);
+					mBitmap = BitmapFactory.decodeByteArray(img, 0, img.length, options);
 
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -685,30 +637,6 @@ public class MainActivity extends Activity implements PreviewCallback {
 					break;
 			}
 			return mBitmap;
-		}
-
-		private int calculateInSampleSize(BitmapFactory.Options options,
-				int reqWidth, int reqHeight) {
-			// Raw height and width of image
-			final int height = options.outHeight;
-			final int width = options.outWidth;
-			int inSampleSize = 1;
-
-			if (height > reqHeight || width > reqWidth) {
-
-				final int halfHeight = height / 2;
-				final int halfWidth = width / 2;
-
-				// Calculate the largest inSampleSize value that is a power of 2
-				// and keeps both
-				// height and width larger than the requested height and width.
-				while ((halfHeight / inSampleSize) > reqHeight
-						&& (halfWidth / inSampleSize) > reqWidth) {
-					inSampleSize *= 2;
-				}
-			}
-
-			return inSampleSize;
 		}
 
 		protected void onPostExecute(Bitmap bm) {
@@ -721,6 +649,51 @@ public class MainActivity extends Activity implements PreviewCallback {
 				mQueue.add(bm);
 			}
 		}
+	}
+
+	private class CheckQueueTimerTask extends TimerTask {
+
+		@Override
+		public void run() {
+			if (!mQueue.isEmpty()) {
+				Bitmap bm = mQueue.remove();
+				Log.d(TAG, "Pulling bitmap from queue");
+
+				// lock canvas
+				Canvas canvas = mPreview.getHolder().lockCanvas();
+
+				// draw to canvas
+				Bitmap scaled = Bitmap.createScaledBitmap(bm, controllerImgWidth, controllerImgHeight, false);
+				int centerX = (canvas.getWidth() - controllerImgWidth) / 2;
+				int centerY = (canvas.getHeight() - controllerImgHeight) / 2;
+				canvas.drawBitmap(scaled, centerX, centerY, new Paint());
+
+				// unlock canvas and post
+				mPreview.getHolder().unlockCanvasAndPost(canvas);
+			}
+		}
+	}
+
+	private class SendImageTimerTask extends TimerTask {
+
+		@Override
+		public void run() {
+			raiseSendImgFlag();
+		}
+	}
+
+	byte[] concatByteArray(byte[] A, byte[] B) {
+		int aLen = A.length;
+		int bLen = B.length;
+		byte[] C = new byte[aLen + bLen];
+		System.arraycopy(A, 0, C, 0, aLen);
+		System.arraycopy(B, 0, C, aLen, bLen);
+		return C;
+	}
+
+	byte[] intToByteArray(int input) {
+		// TODO Auto-generated method stub
+		return ByteBuffer.allocate(4).putInt(input).array();
 	}
 
 }

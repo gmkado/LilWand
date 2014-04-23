@@ -1,0 +1,1 @@
+04-21 17:46:02.864: D/BluetoothService(14972): received -1567975864 bytes

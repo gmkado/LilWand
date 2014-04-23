@@ -1,17 +1,15 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.example.lilwand;
@@ -19,6 +17,7 @@ package com.example.lilwand;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.UUID;
 
 import android.bluetooth.BluetoothAdapter;
@@ -32,10 +31,9 @@ import android.os.Message;
 import android.util.Log;
 
 /**
- * This class does all the work for setting up and managing Bluetooth
- * connections with other devices. It has a thread that listens for incoming
- * connections, a thread for connecting with a device, and a thread for
- * performing data transmissions when connected.
+ * This class does all the work for setting up and managing Bluetooth connections with other
+ * devices. It has a thread that listens for incoming connections, a thread for connecting with a
+ * device, and a thread for performing data transmissions when connected.
  */
 public class BluetoothService {
 	// Debugging
@@ -46,8 +44,7 @@ public class BluetoothService {
 	private static final String NAME = "MainActivity";
 
 	// Unique UUID for this application
-	private static final UUID MY_UUID = UUID
-			.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
+	private static final UUID MY_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
 
 	// Member fields
 	private final BluetoothAdapter mAdapter;
@@ -56,6 +53,7 @@ public class BluetoothService {
 	private ConnectThread mConnectThread;
 	private ConnectedThread mConnectedThread;
 	private int mState;
+	private Context mContext;
 
 	// Constants that indicate the current connection state
 	public static final int STATE_NONE = 0; // we're doing nothing
@@ -75,6 +73,7 @@ public class BluetoothService {
 	 *            A Handler to send messages back to the UI Activity
 	 */
 	public BluetoothService(Context context, Handler handler) {
+		mContext = context;
 		mAdapter = BluetoothAdapter.getDefaultAdapter();
 		mState = STATE_NONE;
 		mHandler = handler;
@@ -127,8 +126,7 @@ public class BluetoothService {
 		mState = state;
 
 		// Give the new state to the Handler so the UI Activity can update
-		mHandler.obtainMessage(MainActivity.MESSAGE_STATE_CHANGE, state, -1)
-				.sendToTarget();
+		mHandler.obtainMessage(MainActivity.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
 	}
 
 	/**
@@ -139,8 +137,8 @@ public class BluetoothService {
 	}
 
 	/**
-	 * Start the service. Specifically start AcceptThread to begin a session in
-	 * listening (server) mode. Called by the MainActivity onResume()
+	 * Start the service. Specifically start AcceptThread to begin a session in listening (server)
+	 * mode. Called by the MainActivity onResume()
 	 */
 	public synchronized void start() {
 		if (D)
@@ -204,8 +202,7 @@ public class BluetoothService {
 	 * @param device
 	 *            The BluetoothDevice that has been connected
 	 */
-	public synchronized void connected(BluetoothSocket socket,
-			BluetoothDevice device) {
+	public synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
 		if (D)
 			Log.d(TAG, "connected");
 
@@ -260,6 +257,7 @@ public class BluetoothService {
 			mAcceptThread.cancel();
 			mAcceptThread = null;
 		}
+
 		setState(STATE_NONE);
 	}
 
@@ -293,9 +291,6 @@ public class BluetoothService {
 		bundle.putString(MainActivity.TOAST, "Unable to connect device");
 		msg.setData(bundle);
 		mHandler.sendMessage(msg);
-
-		// Start the service over to restart listening mode
-		BluetoothService.this.start();
 	}
 
 	/**
@@ -308,15 +303,11 @@ public class BluetoothService {
 		bundle.putString(MainActivity.TOAST, "Device connection was lost");
 		msg.setData(bundle);
 		mHandler.sendMessage(msg);
-
-		// Start the service over to restart listening mode
-		BluetoothService.this.start();
 	}
 
 	/**
-	 * This thread runs while listening for incoming connections. It behaves
-	 * like a server-side client. It runs until a connection is accepted (or
-	 * until cancelled).
+	 * This thread runs while listening for incoming connections. It behaves like a server-side
+	 * client. It runs until a connection is accepted (or until cancelled).
 	 */
 	private class AcceptThread extends Thread {
 		// The local server socket
@@ -327,8 +318,7 @@ public class BluetoothService {
 
 			// Create a new listening server socket
 			try {
-				tmp = mAdapter
-						.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
+				tmp = mAdapter.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
 			} catch (IOException e) {
 				Log.e(TAG, "listen() failed", e);
 			}
@@ -391,9 +381,8 @@ public class BluetoothService {
 	}
 
 	/**
-	 * This thread runs while attempting to make an outgoing connection with a
-	 * device. It runs straight through; the connection either succeeds or
-	 * fails.
+	 * This thread runs while attempting to make an outgoing connection with a device. It runs
+	 * straight through; the connection either succeeds or fails.
 	 */
 	private class ConnectThread extends Thread {
 		private final BluetoothSocket mmSocket;
@@ -431,9 +420,7 @@ public class BluetoothService {
 				try {
 					mmSocket.close();
 				} catch (IOException e2) {
-					Log.e(TAG,
-							"unable to close() socket during connection failure",
-							e2);
+					Log.e(TAG, "unable to close() socket during connection failure", e2);
 				}
 				// Start the service over to restart listening mode
 				BluetoothService.this.start();
@@ -459,8 +446,8 @@ public class BluetoothService {
 	}
 
 	/**
-	 * This thread runs during a connection with a remote device. It handles all
-	 * incoming and outgoing transmissions.
+	 * This thread runs during a connection with a remote device. It handles all incoming and
+	 * outgoing transmissions.
 	 */
 	private class ConnectedThread extends Thread {
 		private final BluetoothSocket mmSocket;
@@ -496,30 +483,40 @@ public class BluetoothService {
 				try {
 					// Read from the InputStream and store message in buffer.
 					// bytes contains the number of bytes read.
-					if (mmInStream.available() > 0) {
-						messageType = mmInStream.read();
-						messageLength = mmInStream.read()
-								+ (mmInStream.read() << 8);
-						buffer = new byte[messageLength];
+					messageType = mmInStream.read();
 
-						int count = 0; // read in bytes until we've reached
-										// method length
-						while (count < messageLength) {
-							if (mmInStream.available() > 0) {
-								buffer[count] = (byte) mmInStream.read();
-								count++;
-							}
-						}
+					// read in the message length
+					buffer = new byte[4];
+					mmInStream.read(buffer);
+					messageLength = ByteBuffer.wrap(buffer).getInt();
+
+					buffer = new byte[messageLength];
+					// mmInstream.read(buffer); // <-- this code is causing a race condition, works
+					// if you insert Thread.sleep(1000) right after it
+
+					int count = 0;
+					// read in bytes until we've reached messagelength
+					while (count < messageLength) {
+						buffer[count] = (byte) mmInStream.read();
+						count++;
+					}
+
+					if (mmInStream.read() == MainActivity.EOT) {
 						// Send the obtained bytes to the UI Activity
-						mHandler.obtainMessage(MainActivity.MESSAGE_READ,
-								messageType, messageLength, buffer)
-								.sendToTarget();
-
+						mHandler.obtainMessage(MainActivity.MESSAGE_READ, messageType,
+								messageLength, buffer).sendToTarget();
+					} else {
+						Log.e(TAG, "FOOTER BYTE not received.  Communication misaligned!");
+						connectionLost();
+						break;
 					}
 
 				} catch (IOException e) {
 					Log.e(TAG, "disconnected", e);
 					connectionLost();
+
+					// restart to get into listening mode
+					BluetoothService.this.start();
 					break;
 				}
 			}
@@ -533,12 +530,11 @@ public class BluetoothService {
 		 */
 		public void write(byte[] buffer) {
 			try {
-				mmOutStream.write(buffer, 0, buffer.length);
+				mmOutStream.write(buffer);
 
 				mmOutStream.flush();
 				// Share the sent message back to the UI Activity
-				mHandler.obtainMessage(MainActivity.MESSAGE_WRITE, -1, -1,
-						buffer).sendToTarget();
+				mHandler.obtainMessage(MainActivity.MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
 			} catch (IOException e) {
 				Log.e(TAG, "Exception during write", e);
 			}
@@ -546,10 +542,12 @@ public class BluetoothService {
 
 		public void cancel() {
 			try {
+				mmOutStream.close();
 				mmSocket.close();
 			} catch (IOException e) {
 				Log.e(TAG, "close() of connect socket failed", e);
 			}
 		}
 	}
+
 }

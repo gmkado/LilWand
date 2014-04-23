@@ -16,7 +16,6 @@ public class CameraPreview extends SurfaceView implements
 	private SurfaceHolder mHolder;
 	private Camera mCamera;
 	private MainActivity mContext;
-	private boolean cameraConfigured = false;
 
 	public CameraPreview(MainActivity context, Camera camera) {
 		super(context);
@@ -35,7 +34,7 @@ public class CameraPreview extends SurfaceView implements
 		// The Surface has been created, now tell the camera where to draw the
 		// preview.
 		try {
-			mCamera.setPreviewDisplay(holder);			
+			mCamera.setPreviewDisplay(holder);
 		} catch (IOException e) {
 			Log.d(TAG, "Error setting camera preview: " + e.getMessage());
 		}
@@ -48,6 +47,7 @@ public class CameraPreview extends SurfaceView implements
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
 		// If your preview can change or rotate, take care of those events here.
 		// Make sure to stop the preview before resizing or reformatting it.
+		
 
 		if (mHolder.getSurface() == null) {
 			// preview surface does not exist
@@ -61,25 +61,8 @@ public class CameraPreview extends SurfaceView implements
 			// ignore: tried to stop a non-existent preview
 		}
 
-		// set preview size and make any resize, rotate or reformatting changes here
-		if (!cameraConfigured) {
-			Camera.Parameters parameters = mCamera.getParameters();
-			Camera.Size size = getBestPreviewSize(mContext.getFrameWidth(), mContext.getFrameHeight(), parameters);
-
-			if (size != null) {
-				parameters.setPreviewSize(size.width, size.height);
-				mCamera.setParameters(parameters);
-								
-				// TODO: is this thread-safe?
-				// send new image sizes
-				mContext.setImgWidth(size.width);
-				mContext.setImgHeight(size.height);
-				//TODO: uncomment this
-				//mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAM, new byte[] {(byte) size.width, (byte) size.height});		        
-				cameraConfigured = true;
-			}
-		}
-
+		// set preview size based on frames width/height
+		configureCameraPreview(mContext.getPreviewWidth(), mContext.getPreviewHeight());
 		// start preview with new settings
 		try {
 			mCamera.setPreviewDisplay(mHolder);
@@ -92,7 +75,24 @@ public class CameraPreview extends SurfaceView implements
 		}
 	}
 
-	private Camera.Size getBestPreviewSize(int width, int height, Camera.Parameters parameters) {
+	public void configureCameraPreview(int width, int height) {
+		Camera.Parameters parameters = mCamera.getParameters();
+		Camera.Size size = getBestPreviewSize(width, height, parameters);
+
+		if (size != null) {
+			parameters.setPreviewSize(size.width, size.height);
+			mCamera.setParameters(parameters);
+			
+			byte[] message = mContext.concatByteArray(mContext.intToByteArray(size.width),mContext.intToByteArray(size.height));
+			mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAM, message);
+			mContext.setCameraImageSize(size.width, size.height);
+			
+
+		}
+	}
+
+	private Camera.Size getBestPreviewSize(int width, int height,
+			Camera.Parameters parameters) {
 		Camera.Size result = null;
 
 		for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
@@ -113,9 +113,5 @@ public class CameraPreview extends SurfaceView implements
 		return (result);
 	}
 
-	public boolean isConfigured() {
-		// TODO Auto-generated method stub
-		return cameraConfigured;
-	}
 
 }

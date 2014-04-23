@@ -20,7 +20,7 @@
           android:title="@string/connect" 
           android:showAsAction="ifRoom"/>
     <item android:id="@+id/discoverable"
-          android:icon="@android:drawable/ic_menu_mylocation"
+          android:icon="@android:drawable/ic_menu_view"
           android:title="@string/discoverable"
           android:showAsAction="ifRoom" />
 </menu>
