@@ -512,6 +512,7 @@ public class MainActivity extends Activity implements PreviewCallback, SensorEve
 		sendImgFlag = true;
 	}
 
+	
 	public void onPreviewFrame(byte[] data, Camera camera) {
 
 		// Log.d(TAG, "onPreviewFrame - sending preview frame");
