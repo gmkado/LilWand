@@ -29,6 +29,7 @@ import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -39,6 +40,10 @@ import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.hardware.Camera.PreviewCallback;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -55,19 +60,22 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.example.lilwand.R;
+import android.util.FloatMath;
 
 /**
  * This is the main Activity that displays the current session.
  */
-public class MainActivity extends Activity implements PreviewCallback {
+public class MainActivity extends Activity implements PreviewCallback, SensorEventListener {
 	// Debugging
 	private static final String TAG = "MainActivity";
-	private static final boolean D = true;
+	private static final String PINPOINT_TAG = "Pinpoint";
+	private static final boolean D = false;
 
 	// Role of app
 	private AtomicInteger mRole = new AtomicInteger();
 	public static final int ROLE_CAMERA = 0;
 	public static final int ROLE_CONTROLLER = 1;
+	public static final int ROLE_UNASSIGNED = 2;
 
 	// Bluetooth fields
 	private String mConnectedDeviceName = null;
@@ -75,9 +83,10 @@ public class MainActivity extends Activity implements PreviewCallback {
 	private BluetoothService mBluetoothService = null;
 
 	// Constants that indicate bluetooth header types
-	public static final byte HEADER_CAMERA_IMAGE = 0;
-	public static final byte HEADER_CAMERA_PARAM = 2;
+	public static final byte HEADER_IMAGE = 0;
+	public static final byte HEADER_CAMERA_PARAMETERS = 2;
 	public static final byte HEADER_CONTROLLER_CMD = 1;
+	private static final byte HEADER_IMAGE_RECEIVED = 3;
 
 	// Key names received from the BluetoothService Handler
 	public static final String DEVICE_NAME = "device_name";
@@ -98,9 +107,12 @@ public class MainActivity extends Activity implements PreviewCallback {
 	public static final byte EOT = 0x04; // END OF TRANSMISSION BYTE
 
 	// Layout Views
-	private ActionBar ab;
+	private ActionBar mActionBar;
 	private FrameLayout mPreviewFrame;
-
+	private MenuItem homeMenuItem;
+	private MenuItem controlMenuItem;
+	private MenuItem connectMenuItem;
+	
 	// Camera control variables
 	private Camera mCamera = null;
 	private SurfaceView mPreview = null;
@@ -112,7 +124,6 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 	// Camera parameters
 	private int imgFormat = ImageFormat.NV21;
-	private MenuItem connectMenuItem;
 	private int controllerImgWidth;
 	private int controllerImgHeight;
 	private int cameraImgHeight;
@@ -125,6 +136,21 @@ public class MainActivity extends Activity implements PreviewCallback {
 	private static final long CHECK_QUEUE_INTERVAL = 16;
 	private static final long SEND_IMAGE_INTERVAL = 32;
 
+	// sensor variables
+	private SensorManager mSensorManager;
+	private Sensor mAccelSensor;
+	private Sensor mMagSensor;
+	private boolean hasSensors;
+	private float[] mags;
+	private float[] accels;
+	private boolean grabInitAngles = true;
+	private float initYaw;
+	private float initRoll;
+	private float initPitch;
+	private float deltaYaw;
+	private float deltaPitch;
+	private float deltaRoll;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -132,7 +158,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 			Log.e(TAG, "+++ ON CREATE +++");
 
 		// set app role (default as camera)
-		mRole.set(ROLE_CAMERA);
+		mRole.set(ROLE_UNASSIGNED);
 
 		// create message handler for bluetooth messages
 		mHandler = new LilWandHandler(this);
@@ -140,7 +166,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 		// Set up the window layout
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setContentView(R.layout.main);
-		ab = getActionBar();
+		mActionBar = getActionBar();
 
 		// set up the camera preview widget
 		mPreviewFrame = (FrameLayout) findViewById(R.id.camera_preview);
@@ -157,6 +183,11 @@ public class MainActivity extends Activity implements PreviewCallback {
 		// initialize variables for bitmap decoding
 		mQueue = new LinkedBlockingQueue<Bitmap>();
 
+		// initialize sensors
+		mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+		mAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mMagSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		hasSensors = mAccelSensor != null && mMagSensor != null; // boolean used to turn on or off orientation messages
 	}
 
 	@Override
@@ -185,24 +216,23 @@ public class MainActivity extends Activity implements PreviewCallback {
 		// was not enabled during onStart(), so we were paused to enable it...
 		// onResume() will be called when ACTION_REQUEST_ENABLE activity
 		// returns.
-		if (mBluetoothService != null) {
-			// Only if the state is STATE_NONE, do we know that we haven't
-			// started already
-			if (mBluetoothService.getState() == BluetoothService.STATE_NONE) {
-				// Start the Bluetooth services
-				mBluetoothService.start();
+		if (mBluetoothService != null && mBluetoothService.getState() == BluetoothService.STATE_NONE) {
+			// Start the Bluetooth services
+			mBluetoothService.start();
+
+		}
+		if (mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
+			if (mRole.get() == ROLE_CAMERA) {
+				initializeCameraRole();
+			} else if (mRole.get() == ROLE_CONTROLLER) {
+				initializeControllerRole();
 			}
 		}
-
-		if (mRole.get() == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
-			// get camera again
-			getCameraInstanceAndStartPreview();
-		}
-
+	
 	}
 
 	private void setupSession() {
-		Log.d(TAG, "setupSession()");
+		if(D) Log.d(TAG, "setupSession()");
 
 		// Initialize the BluetoothService to perform bluetooth connections
 		mBluetoothService = new BluetoothService(this, mHandler);
@@ -214,10 +244,12 @@ public class MainActivity extends Activity implements PreviewCallback {
 		super.onPause();
 		if (D)
 			Log.e(TAG, "- ON PAUSE -");
-
-		if (mRole.get() == ROLE_CAMERA && mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
-			// release camera
-			stopPreviewAndReleaseCamera();
+		if (mBluetoothService.getState() == BluetoothService.STATE_CONNECTED) {
+			if (mRole.get() == ROLE_CAMERA) {
+				releaseCameraRole();
+			} else if (mRole.get() == ROLE_CONTROLLER) {
+				releaseControllerRole();
+			}
 		}
 	}
 
@@ -250,12 +282,24 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 	public void sendMessageWithHeader(byte headerType, byte[] data) {
 		// add length to header
-		byte[] header = concatByteArray(new byte[] { headerType }, intToByteArray(data.length));
+		byte[] header;
+		
+		if (data!=null){
+			header = concatByteArray(new byte[] { headerType }, intToByteArray(data.length));
+		}else{
+			header = concatByteArray(new byte[] {headerType}, intToByteArray(0));
+		}
+		
+		byte[] message;
+		if(data !=null){
+			message = concatByteArray(header, data);
+		}else {
+			message = header; 
+		}
+		
 		byte[] footer = { EOT }; // arbitrary stop bits
-
-		byte[] message = concatByteArray(header, data);
 		message = concatByteArray(message, footer);
-		Log.d(TAG, "sent " + data.length + " bytes");
+		if(D) Log.d(TAG, "sent " + message.length + " bytes");
 		// send message
 		sendMessage(message);
 
@@ -283,18 +327,21 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 	private void parseMessage(int messageType, int messageLength, byte[] message) {
 		// unpack the message
-		Log.d(TAG, "parseMessage");
+		if(D) Log.d(TAG, "parseMessage");
 		if (mRole.get() == ROLE_CAMERA) {
+			if(messageType == HEADER_IMAGE_RECEIVED) {
+				sendImgFlag = true;
+			}
 		}
 
 		else if (mRole.get() == ROLE_CONTROLLER) {
-			if (messageType == HEADER_CAMERA_PARAM) {
+			if (messageType == HEADER_CAMERA_PARAMETERS) {
 				ByteBuffer b = ByteBuffer.wrap(message);
 				int width = b.getInt();
 				int height = b.getInt();
 				setControllerImageSize(width, height);
 			}
-			if (messageType == HEADER_CAMERA_IMAGE) {
+			if (messageType == HEADER_IMAGE) {
 				// if(D) Log.d(TAG,"parseMessage - image received");
 				// execute worker task to decode image
 
@@ -353,6 +400,8 @@ public class MainActivity extends Activity implements PreviewCallback {
 				BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
 				// Attempt to connect to the device
 				mBluetoothService.connect(device);
+			} else if (resultCode == Activity.RESULT_CANCELED){
+				mRole.set(ROLE_UNASSIGNED);
 			}
 			break;
 		case REQUEST_ENABLE_BT:
@@ -362,7 +411,7 @@ public class MainActivity extends Activity implements PreviewCallback {
 				setupSession();
 			} else {
 				// User did not enable Bluetooth or an error occured
-				Log.d(TAG, "BT not enabled");
+				if(D) Log.d(TAG, "BT not enabled");
 				Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
 				finish();
 			}
@@ -375,27 +424,28 @@ public class MainActivity extends Activity implements PreviewCallback {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.option_menu, menu);
 
-		connectMenuItem = menu.findItem(R.id.scan);
+		connectMenuItem = menu.findItem(R.id.connect);
+		homeMenuItem = menu.findItem(R.id.home);
+		controlMenuItem = menu.findItem(R.id.control);
 		return true;
 	}
 
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
-		case R.id.scan:
+		case R.id.connect:
 			int btState = mBluetoothService.getState();
 			if (btState == BluetoothService.STATE_CONNECTED || btState == BluetoothService.STATE_CONNECTING) {
 				// initiate disconnect
-
-				// if we have the camera, release it
 				if (mRole.get() == ROLE_CAMERA) {
-					stopPreviewAndReleaseCamera();
-				} else {
-					mRole.set(ROLE_CAMERA);
+					releaseCameraRole();
+				} else if (mRole.get() == ROLE_CONTROLLER) {
+					releaseControllerRole();
 				}
-				// restart bluetooth service to get it back into listening mode.
-				// (For cases when connection fails or is lost, this happens
-				// internally in BluetoothService).
+				releaseActiveRole();
+				// stop the bluetooth service. This will cause an exception to be thrown in the connected thread of BluetoothService, which will
+				// restart the service and put it into a listening mode
+				// (For cases when connection fails or is lost, this happens internally in BluetoothService, but here we have to do it manually).
 				if (mBluetoothService != null) {
 					mBluetoothService.stop();
 				}
@@ -413,6 +463,15 @@ public class MainActivity extends Activity implements PreviewCallback {
 			// Ensure this device is discoverable by others
 			ensureDiscoverable();
 			return true;
+		case R.id.control:
+			// enable sending control commands
+			return true;
+		case R.id.home:
+			// command tripod to return home
+			grabInitAngles = true;
+			
+			return true;
+
 		}
 		return false;
 	}
@@ -465,8 +524,8 @@ public class MainActivity extends Activity implements PreviewCallback {
 			yuvimage.compressToJpeg(rect, 30, outstr);
 
 			byte[] img = outstr.toByteArray();
-			Log.d(TAG, "onPreviewFrame: compressed " + data.length + " to " + img.length);
-			sendMessageWithHeader(HEADER_CAMERA_IMAGE, img);
+			if(D) Log.d(TAG, "onPreviewFrame: compressed " + data.length + " to " + img.length);
+			sendMessageWithHeader(HEADER_IMAGE, img);
 
 			sendImgFlag = false;
 
@@ -524,36 +583,22 @@ public class MainActivity extends Activity implements PreviewCallback {
 				case MESSAGE_STATE_CHANGE:
 					switch (msg.arg1) {
 					case BluetoothService.STATE_CONNECTED:
-						activity.ab.setTitle(R.string.title_connected_to);
-						activity.ab.setSubtitle(activity.mConnectedDeviceName);
+						activity.mActionBar.setTitle(R.string.title_connected_to);
+						activity.mActionBar.setSubtitle(activity.mConnectedDeviceName);
 						break;
 					case BluetoothService.STATE_CONNECTING:
-						activity.ab.setTitle(R.string.title_connecting);
+						activity.mActionBar.setTitle(R.string.title_connecting);
 						break;
 					case BluetoothService.STATE_LISTEN:
 					case BluetoothService.STATE_NONE:
 						// lost connection with paired device
 						if (activity.mRole.get() == ROLE_CAMERA) {
-							activity.stopPreviewAndReleaseCamera();
+							activity.releaseCameraRole();
+						} else if (activity.mRole.get() == ROLE_CONTROLLER) {
+
+							activity.releaseControllerRole();
 						}
-
-						else if (activity.mRole.get() == ROLE_CONTROLLER) {
-
-							activity.mRole.set(ROLE_CAMERA);
-						}
-						activity.mPreviewFrame.removeView(activity.mPreview);
-
-						if (activity.mTimer != null) {
-							// stop the timer
-							activity.mTimerTask.cancel();
-							activity.mTimer.cancel();
-						}
-
-						// change menu icon to connect
-						if (activity.connectMenuItem != null)
-							activity.connectMenuItem.setIcon(android.R.drawable.ic_menu_search);
-						activity.ab.setTitle(R.string.title_not_connected);
-						activity.ab.setSubtitle("");
+						activity.releaseActiveRole();
 						break;
 					}
 					break;
@@ -568,28 +613,12 @@ public class MainActivity extends Activity implements PreviewCallback {
 					// save the connected device's name
 					activity.mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
 					Toast.makeText(activity.getApplicationContext(), "Connected to " + activity.mConnectedDeviceName, Toast.LENGTH_SHORT).show();
-
-					// change menu icon to disconnect
-					activity.connectMenuItem.setIcon(android.R.drawable.ic_menu_close_clear_cancel);
-					activity.mTimer = new Timer();
-					// if we are a camera, start the camera preview
-					if (activity.mRole.get() == MainActivity.ROLE_CAMERA) {
-						activity.getCameraInstanceAndStartPreview();
-						activity.mTimerTask = activity.new SendImageTimerTask();
-						activity.mTimer.scheduleAtFixedRate(activity.mTimerTask, 0, SEND_IMAGE_INTERVAL);
-
-					}
-					// otherwise if we are a controller schedule to check queue for messages
-					else if (activity.mRole.get() == ROLE_CONTROLLER) {
-						// Reconfigure framelayout to be a controllerpreview
-						FrameLayout fl = activity.mPreviewFrame;
-						fl.removeAllViews();
-						activity.mPreview = new ControllerPreview(activity.getApplicationContext());
-						fl.addView(activity.mPreview);
-
-						activity.mTimerTask = activity.new CheckQueueTimerTask();
-						activity.mTimer.scheduleAtFixedRate(activity.mTimerTask, 0, CHECK_QUEUE_INTERVAL);
-
+					
+					activity.initializeActiveRole();
+					if (activity.mRole.get() == ROLE_CONTROLLER) {
+						activity.initializeControllerRole();
+					} else {
+						activity.initializeCameraRole();
 					}
 					break;
 				case MESSAGE_TOAST:
@@ -604,23 +633,18 @@ public class MainActivity extends Activity implements PreviewCallback {
 	// TODO: maybe this should be another thread with a Handler to post to the
 	// queue? or lock orientation so activity doesn't get destroyed
 	private class DecodeBitmapTask extends AsyncTask<byte[], Void, Bitmap> {
-		int width;
-		int height;
+		
 
 		@Override
 		protected void onPreExecute() {
 			// while we're in the ui thread, get the frame width and height
 			super.onPreExecute();
-
-			// get the image dimensions from the UI thread
-			width = controllerImgWidth;
-			height = controllerImgHeight;
 		}
 
 		protected Bitmap doInBackground(byte[]... imgList) {
 			for (byte[] img : imgList) {
 				try {
-					Log.d(TAG, "decoding byte array of :" + img.length + "bytes");
+					if(D) Log.d(TAG, "decoding byte array of :" + img.length + "bytes");
 					// Set bitmap factory options
 					BitmapFactory.Options options = new BitmapFactory.Options();
 					options.inPreferQualityOverSpeed = false;
@@ -641,10 +665,11 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 		protected void onPostExecute(Bitmap bm) {
 			if (bm == null) {
-				Log.d(TAG, "Decoding failed.");
+				if(D) Log.d(TAG, "Decoding failed.");
 			} else {
-				Log.d(TAG, "Successfully decoded image.");
-
+				if(D) Log.d(TAG, "Successfully decoded image.");
+				
+				sendMessageWithHeader(HEADER_IMAGE_RECEIVED, null);
 				// post it to the queue
 				mQueue.add(bm);
 			}
@@ -655,32 +680,36 @@ public class MainActivity extends Activity implements PreviewCallback {
 
 		@Override
 		public void run() {
-			if (!mQueue.isEmpty()) {
-				Bitmap bm = mQueue.remove();
-				Log.d(TAG, "Pulling bitmap from queue");
+			try {
+				if (!mQueue.isEmpty()) {
+					Bitmap bm = mQueue.remove();
+					if(D)Log.d(TAG, "Pulling bitmap from queue");
 
-				// lock canvas
-				Canvas canvas = mPreview.getHolder().lockCanvas();
+					// lock canvas
+					Canvas canvas = mPreview.getHolder().lockCanvas();
 
-				// draw to canvas
-				Bitmap scaled = Bitmap.createScaledBitmap(bm, controllerImgWidth, controllerImgHeight, false);
-				int centerX = (canvas.getWidth() - controllerImgWidth) / 2;
-				int centerY = (canvas.getHeight() - controllerImgHeight) / 2;
-				canvas.drawBitmap(scaled, centerX, centerY, new Paint());
+					// draw to canvas
+					Bitmap scaled = Bitmap.createScaledBitmap(bm, controllerImgWidth, controllerImgHeight, false);
+					int centerX = (canvas.getWidth() - controllerImgWidth) / 2;
+					int centerY = (canvas.getHeight() - controllerImgHeight) / 2;
+					canvas.drawBitmap(scaled, centerX, centerY, new Paint());
 
-				// unlock canvas and post
-				mPreview.getHolder().unlockCanvasAndPost(canvas);
+					// unlock canvas and post
+					mPreview.getHolder().unlockCanvasAndPost(canvas);
+				}
+			} catch (Exception e) {
+				if(D) Log.d(TAG, "CheckQueueTimerTask failed in run", e);
 			}
 		}
 	}
 
-	private class SendImageTimerTask extends TimerTask {
+	/*private class SendImageTimerTask extends TimerTask {
 
 		@Override
 		public void run() {
 			raiseSendImgFlag();
 		}
-	}
+	}*/
 
 	byte[] concatByteArray(byte[] A, byte[] B) {
 		int aLen = A.length;
@@ -691,9 +720,135 @@ public class MainActivity extends Activity implements PreviewCallback {
 		return C;
 	}
 
+	public void initializeActiveRole() {
+		// change menu icon to disconnect
+		connectMenuItem.setIcon(android.R.drawable.ic_menu_close_clear_cancel);
+		mTimer = new Timer();
+	}
+	
+	public void initializeControllerRole() {
+		// Reconfigure framelayout to be a controllerpreview		
+		mPreview = new ControllerPreview(getApplicationContext());
+		mPreviewFrame.addView(mPreview);
+
+		mTimerTask = new CheckQueueTimerTask();
+		mTimer.scheduleAtFixedRate(mTimerTask, 0, CHECK_QUEUE_INTERVAL);
+
+		// show options menu buttons
+		controlMenuItem.setVisible(true);
+		homeMenuItem.setVisible(true);
+		
+		if (hasSensors) {
+			mSensorManager.registerListener(this, mMagSensor, SensorManager.SENSOR_DELAY_NORMAL);
+			mSensorManager.registerListener(this, mAccelSensor, SensorManager.SENSOR_DELAY_NORMAL);
+		}
+	}
+
+	public void initializeCameraRole() {
+		getCameraInstanceAndStartPreview();
+//		mTimerTask = new SendImageTimerTask();
+//		mTimer.scheduleAtFixedRate(mTimerTask, 0, SEND_IMAGE_INTERVAL);
+		sendImgFlag = true;
+		mRole.set(ROLE_CAMERA);
+	}
+	
+	public void releaseActiveRole() {
+		// any actions that both camera and controller must do to fully reset
+		mPreviewFrame.removeView(mPreview);
+
+		if (mTimer != null) {
+			// stop the timer
+			mTimerTask.cancel();
+			mTimer.cancel();
+		}
+
+		// change menu icon to connect
+		if (connectMenuItem != null)
+			connectMenuItem.setIcon(android.R.drawable.ic_menu_search);
+		mActionBar.setTitle(R.string.title_not_connected);
+		mActionBar.setSubtitle("");
+
+		mRole.set(ROLE_UNASSIGNED);
+	}
+	
+	public void releaseControllerRole() {
+		// everything we need to stop being the controller
+		
+		mSensorManager.unregisterListener(this);
+		
+		// turn off buttons in menu
+		controlMenuItem.setVisible(false);
+		homeMenuItem.setVisible(false);
+	}
+
+	public void releaseCameraRole() {
+		// everything we need to stop being the camera
+		stopPreviewAndReleaseCamera();
+	}
+
+	
 	byte[] intToByteArray(int input) {
 		// TODO Auto-generated method stub
 		return ByteBuffer.allocate(4).putInt(input).array();
+	}
+
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+
+		if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE)
+			return;
+
+		switch (event.sensor.getType()) {
+		case Sensor.TYPE_MAGNETIC_FIELD:
+			mags = event.values.clone();
+			break;
+		case Sensor.TYPE_ACCELEROMETER:
+			accels = event.values.clone();
+			break;
+		}
+
+		if (mags != null && accels != null) {
+			final float[] R = new float[9];
+			final float[] I = new float[9];
+			final float[] outR = new float[9];
+			final float[] values = new float[3];
+
+			SensorManager.getRotationMatrix(R, I, accels, mags);
+
+			// Correct if screen is in Landscape
+			SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_X, SensorManager.AXIS_Z, outR);
+
+			SensorManager.getOrientation(outR, values);
+
+			float yaw = (float) Math.toDegrees(values[0]);
+			float pitch = (float) Math.toDegrees(values[1]);
+			float roll = (float) Math.toDegrees(values[2]);
+
+			if (grabInitAngles) {
+				initYaw = yaw;
+				initPitch = pitch;
+				initRoll = roll;
+
+				grabInitAngles = false;
+			} else {
+				deltaYaw = yaw - initYaw;
+				deltaPitch = pitch - initPitch;
+				deltaRoll = roll - initRoll;
+
+			}
+			// TODO: send values to camera
+			Log.i(PINPOINT_TAG,
+					"Roll = " + String.format("%.01f", deltaRoll) + ", Pitch = " + String.format("%.01f", deltaPitch) + ", Yaw = "
+							+ String.format("%.01f", deltaYaw));
+
+		}
+
+	}
+
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		// TODO Auto-generated method stub
+
 	}
 
 }

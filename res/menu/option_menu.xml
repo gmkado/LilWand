@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2009 The Android Open Source Project
+<!--
+     Copyright (C) 2009 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,13 +15,29 @@
      limitations under the License.
 -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:yourapp="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/scan"
-          android:icon="@android:drawable/ic_menu_search"
-          android:title="@string/connect" 
-          android:showAsAction="ifRoom"/>
-    <item android:id="@+id/discoverable"
-          android:icon="@android:drawable/ic_menu_view"
-          android:title="@string/discoverable"
-          android:showAsAction="ifRoom" />
+    xmlns:yourapp="http://schemas.android.com/apk/res-auto" >
+
+    <item
+        android:id="@+id/connect"
+        android:icon="@android:drawable/ic_menu_search"
+        android:showAsAction="ifRoom"
+        android:title="@string/connect"/>
+    <item
+        android:id="@+id/discoverable"
+        android:icon="@android:drawable/ic_menu_view"
+        android:showAsAction="ifRoom"
+        android:title="@string/discoverable"/>
+    <item
+        android:id="@+id/home"
+        android:visible = "false"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        android:showAsAction="ifRoom"
+        android:title="@string/discoverable"/>
+    <item
+        android:id="@+id/control"
+        android:visible = "false"
+        android:icon="@android:drawable/ic_media_play"
+        android:showAsAction="ifRoom"
+        android:title="@string/discoverable"/>
+
 </menu>

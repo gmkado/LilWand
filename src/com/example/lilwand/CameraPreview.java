@@ -84,7 +84,7 @@ public class CameraPreview extends SurfaceView implements
 			mCamera.setParameters(parameters);
 			
 			byte[] message = mContext.concatByteArray(mContext.intToByteArray(size.width),mContext.intToByteArray(size.height));
-			mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAM, message);
+			mContext.sendMessageWithHeader(MainActivity.HEADER_CAMERA_PARAMETERS, message);
 			mContext.setCameraImageSize(size.width, size.height);
 			
 

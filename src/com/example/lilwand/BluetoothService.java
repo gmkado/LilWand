@@ -490,17 +490,20 @@ public class BluetoothService {
 					mmInStream.read(buffer);
 					messageLength = ByteBuffer.wrap(buffer).getInt();
 
-					buffer = new byte[messageLength];
-					// mmInstream.read(buffer); // <-- this code is causing a race condition, works
-					// if you insert Thread.sleep(1000) right after it
-
-					int count = 0;
-					// read in bytes until we've reached messagelength
-					while (count < messageLength) {
-						buffer[count] = (byte) mmInStream.read();
-						count++;
+					if(messageLength != 0){
+						buffer = new byte[messageLength];
+						// mmInstream.read(buffer); // <-- this code is causing a race condition, works
+						// if you insert Thread.sleep(1000) right after it
+	
+						int count = 0;
+						// read in bytes until we've reached messagelength
+						while (count < messageLength) {
+							buffer[count] = (byte) mmInStream.read();
+							count++;
+						}
+					} else{
+						buffer = null;
 					}
-
 					if (mmInStream.read() == MainActivity.EOT) {
 						// Send the obtained bytes to the UI Activity
 						mHandler.obtainMessage(MainActivity.MESSAGE_READ, messageType,
